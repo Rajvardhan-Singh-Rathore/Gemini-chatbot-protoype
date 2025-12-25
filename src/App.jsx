@@ -3,34 +3,31 @@ import { useState } from "react";
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  console.log("KEY:", API_KEY);
+
   async function sendMessage(e) {
-  e.preventDefault();
-  if (!input.trim()) return;
+    e.preventDefault();
+    if (!input.trim()) return;
 
-  const userMsg = { role: "user", text: input };
-  setMessages(prev => [...prev, userMsg]);
+    const userMsg = { role: "user", text: input };
+    setMessages(prev => [...prev, userMsg]);
 
-  try {
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      body: JSON.stringify({ message: input })
-    });
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: input })
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    const botMsg = { role: "bot", text: data.reply };
-    setMessages(prev => [...prev, botMsg]);
+      const botMsg = { role: "bot", text: data.reply };
+      setMessages(prev => [...prev, botMsg]);
+    } catch (err) {
+      setMessages(prev => [...prev, { role: "bot", text: "Server error" }]);
+    }
 
-  } catch (err) {
-    setMessages(prev => [
-      ...prev,
-      { role: "bot", text: "Error occurred." }
-    ]);
+    setInput("");
   }
-
-  setInput("");
-}
 
 
   return (
