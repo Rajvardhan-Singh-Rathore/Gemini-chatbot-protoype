@@ -17,7 +17,7 @@ function App() {
     const userMsg = { role: "user", text: input };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
-    setInput(""); // clear input immediately
+    setInput(""); // clear immediately
 
     try {
       const res = await fetch("/api/chat", {
@@ -40,7 +40,7 @@ function App() {
     setLoading(false);
   }
 
-  // Auto-scroll chat
+  // Auto-scroll
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -64,10 +64,10 @@ function App() {
           {messages.map((m, i) => (
             <div
               key={i}
-              className={`p-3 rounded-lg w-fit max-w-[80%] ${
+              className={`max-w-[80%] ${
                 m.role === "user"
-                  ? "bg-zinc-800 ml-auto"
-                  : "bg-zinc-700 mr-auto"
+                  ? "bg-zinc-800 p-3 rounded-lg ml-auto"
+                  : "mr-auto"
               }`}
             >
               {m.role === "bot" ? (
@@ -75,17 +75,29 @@ function App() {
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
                   components={{
+                    // normal paragraphs → NO bubble
+                    p({ children }) {
+                      return (
+                        <p className="text-gray-200 leading-relaxed mb-2">
+                          {children}
+                        </p>
+                      );
+                    },
+                    // inline code
                     code({ inline, className, children, ...props }) {
                       return inline ? (
                         <code className="bg-black/70 px-1 py-0.5 rounded">
                           {children}
                         </code>
                       ) : (
-                        <pre className="bg-black text-gray-100 p-3 rounded-lg overflow-x-auto">
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        </pre>
+                        // code block inside a zinc-700 card
+                        <div className="bg-zinc-700 p-2 rounded-lg my-2">
+                          <pre className="bg-black text-gray-100 p-3 rounded-md overflow-x-auto">
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          </pre>
+                        </div>
                       );
                     }
                   }}
