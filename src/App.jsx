@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { db } from "./firebase";
+import { db } from "./firebase.js";
 
 import {
   collection,
