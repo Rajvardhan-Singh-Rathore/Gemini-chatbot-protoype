@@ -2,120 +2,170 @@ import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+import { db } from "./firebase";
+
+import {
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp
+} from "firebase/firestore";
 
 function App() {
-  const [messages, setMessages] = useState(() => {
-    return JSON.parse(localStorage.getItem("chat_history")) || [];
-  });
-
+  const [conversations, setConversations] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
   const chatRef = useRef(null);
 
-  // ---------------- SAVE CHAT ----------------
+  // Listen to all conversations
   useEffect(() => {
-    localStorage.setItem("chat_history", JSON.stringify(messages));
+    const q = query(
+      collection(db, "conversations"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsub = onSnapshot(q, snap => {
+      setConversations(
+        snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      );
+    });
+
+    return () => unsub();
+  }, []);
+
+  // Load messages of active chat
+  useEffect(() => {
+    if (!activeChat) return;
+
+    const unsub = onSnapshot(
+      collection(db, "conversations", activeChat, "messages"),
+      snap => {
+        setMessages(snap.docs.map(d => d.data()));
+      }
+    );
+
+    return () => unsub();
+  }, [activeChat]);
+
+  // Auto-scroll
+  useEffect(() => {
+    if (chatRef.current)
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages]);
 
-  // ---------------- SEND MESSAGE ----------------
+  async function newChat() {
+    const docRef = await addDoc(collection(db, "conversations"), {
+      title: "New chat",
+      createdAt: serverTimestamp()
+    });
+    setActiveChat(docRef.id);
+  }
+
   async function sendMessage(e) {
     e.preventDefault();
-    if (!input.trim() || loading) return;
+    if (!input.trim() || !activeChat) return;
 
-    const userMsg = { role: "user", text: input };
-    setMessages(prev => [...prev, userMsg]);
+    const userMsg = {
+      role: "user",
+      text: input,
+      ts: Date.now()
+    };
+
     setInput("");
+
+    await addDoc(
+      collection(db, "conversations", activeChat, "messages"),
+      userMsg
+    );
+
+    // first user message becomes title
+    await updateDoc(doc(db, "conversations", activeChat), {
+      title: userMsg.text.slice(0, 25)
+    });
+
     setLoading(true);
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg.text })
-      });
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: userMsg.text })
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      const botMsg = { role: "bot", text: data.reply };
-      setMessages(prev => [...prev, botMsg]);
-    } catch {
-      setMessages(prev => [
-        ...prev,
-        { role: "bot", text: "Server error. Please try again." }
-      ]);
-    }
+    await addDoc(
+      collection(db, "conversations", activeChat, "messages"),
+      { role: "bot", text: data.reply, ts: Date.now() }
+    );
 
     setLoading(false);
   }
 
-  // --------------- AUTO-SCROLL ----------------
-  useEffect(() => {
-    if (chatRef.current)
-      chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, [messages, loading]);
-
   return (
-    <div className="h-screen bg-linear-to-br from-gray-900 via-gray-800 to-black text-white flex items-center justify-center">
-      <div className="w-full max-w-2xl backdrop-blur-2xl bg-white/10 border border-white/20 shadow-2xl p-6 rounded-3xl flex flex-col gap-4">
+    <div className="h-screen flex bg-zinc-900 text-white">
 
-        <h1 className="text-2xl font-bold text-center drop-shadow">
+      {/* Sidebar */}
+      <div className="w-64 bg-zinc-800 p-3 flex flex-col gap-3">
+        <button
+          onClick={newChat}
+          className="bg-zinc-700 p-2 rounded-lg"
+        >
+          ➕ New Chat
+        </button>
+
+        <input
+          placeholder="Search..."
+          className="p-2 rounded bg-zinc-900"
+        />
+
+        <div className="flex-1 overflow-y-auto space-y-2">
+          {conversations.map(c => (
+            <div
+              key={c.id}
+              onClick={() => setActiveChat(c.id)}
+              className={`p-2 rounded cursor-pointer ${
+                c.id === activeChat
+                  ? "bg-zinc-600"
+                  : "bg-zinc-700"
+              }`}
+            >
+              {c.title || "Untitled"}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat */}
+      <div className="flex-1 flex flex-col p-5 gap-3">
+
+        <h1 className="text-2xl font-bold text-center">
           RVSR&apos;s Gemini Chatbot
         </h1>
 
-        {/* CHAT */}
         <div
           ref={chatRef}
-          className="flex-1 rounded-2xl p-4 overflow-y-auto space-y-3 bg-black/30 border border-white/10"
-          style={{ maxHeight: "65vh" }}
+          className="flex-1 bg-zinc-800 p-4 rounded-lg overflow-y-auto space-y-3"
         >
           {messages.map((m, i) => (
             <div
               key={i}
-              className={`max-w-[80%] ${
+              className={`p-3 rounded-lg max-w-[80%] ${
                 m.role === "user"
-                  ? "bg-white/20 border border-white/30 p-3 rounded-2xl ml-auto"
-                  : "mr-auto"
+                  ? "bg-zinc-700 ml-auto"
+                  : "bg-zinc-900 mr-auto"
               }`}
             >
               {m.role === "bot" ? (
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
-                  components={{
-                    p({ children }) {
-                      return (
-                        <p className="text-gray-200 leading-relaxed mb-2">
-                          {children}
-                        </p>
-                      );
-                    },
-
-                    code({ inline, className, children, ...props }) {
-                      return inline ? (
-                        <code className="bg-black/60 px-1 py-0.5 rounded">
-                          {children}
-                        </code>
-                      ) : (
-                        <div className="bg-white/20 border border-white/30 rounded-xl my-2 relative">
-                          <button
-                            onClick={() =>
-                              navigator.clipboard.writeText(children)
-                            }
-                            className="absolute top-2 right-2 text-xs bg-white/20 border border-white/20 px-2 py-1 rounded-lg hover:bg-white/30"
-                          >
-                            Copy
-                          </button>
-
-                          <pre className="bg-black text-gray-100 p-4 rounded-xl overflow-x-auto">
-                            <code className={className} {...props}>
-                              {children}
-                            </code>
-                          </pre>
-                        </div>
-                      );
-                    }
-                  }}
                 >
                   {m.text}
                 </ReactMarkdown>
@@ -125,28 +175,18 @@ function App() {
             </div>
           ))}
 
-          {/* TYPING BUBBLE */}
-          {loading && (
-            <div className="bg-white text-black px-3 py-2 rounded-2xl w-fit mr-auto flex gap-1">
-              <span className="typing-dot"></span>
-              <span className="typing-dot"></span>
-              <span className="typing-dot"></span>
-            </div>
-          )}
+          {loading && <div>Typing…</div>}
         </div>
 
-        {/* INPUT */}
+        {/* Input */}
         <form onSubmit={sendMessage} className="flex gap-2">
           <input
-            className="flex-1 p-3 bg-black/40 border border-white/20 rounded-2xl text-white"
-            placeholder="Ask something..."
+            className="flex-1 p-3 rounded bg-zinc-900"
             value={input}
             onChange={e => setInput(e.target.value)}
+            placeholder="Ask something..."
           />
-          <button
-            className="px-6 py-2 rounded-2xl bg-white/90 text-black font-semibold hover:bg-white disabled:opacity-50"
-            disabled={loading}
-          >
+          <button className="bg-white text-black px-4 rounded">
             Send
           </button>
         </form>
