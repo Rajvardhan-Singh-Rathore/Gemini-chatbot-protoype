@@ -99,7 +99,7 @@ function App() {
           ))}
 
           {loading && (
-            <div className="p-3 rounded-lg bg-zinc-700 w-fit mr-auto">
+            <div className="p-3 rounded-lg bg-zinc-800 w-fit mr-auto">
               Typing…
             </div>
           )}
