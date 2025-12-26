@@ -1,21 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const chatRef = useRef(null);
 
   async function sendMessage(e) {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
     const userMsg = { role: "user", text: input };
     setMessages(prev => [...prev, userMsg]);
+    setLoading(true);
+    setInput(""); // clear input immediately after clicking Send
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input })
+        body: JSON.stringify({ message: userMsg.text })
       });
 
       const data = await res.json();
@@ -23,34 +30,59 @@ function App() {
       const botMsg = { role: "bot", text: data.reply };
       setMessages(prev => [...prev, botMsg]);
     } catch (err) {
-      setMessages(prev => [...prev, { role: "bot", text: "Server error" }]);
+      setMessages(prev => [
+        ...prev,
+        { role: "bot", text: "Server error. Please try again." }
+      ]);
     }
 
-    setInput("");
+    setLoading(false);
   }
 
+  // Auto-scroll whenever messages or loading changes
+  useEffect(() => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
 
   return (
     <div className="h-screen bg-zinc-900 text-white flex items-center justify-center">
       <div className="w-full max-w-2xl bg-zinc-800 p-5 rounded-xl shadow-lg flex flex-col gap-4">
 
         <h1 className="text-2xl font-bold text-center">
-          RVSR's Gemini Chatbot
+          RVSR&apos;s Gemini Chatbot
         </h1>
 
-        <div className="flex-1 overflow-y-auto bg-zinc-900 p-4 rounded-lg space-y-3">
+        <div
+          ref={chatRef}
+          className="flex-1 bg-zinc-900 p-4 rounded-lg space-y-3 overflow-y-auto"
+          style={{ maxHeight: "65vh" }}
+        >
           {messages.map((m, i) => (
             <div
               key={i}
-              className={`p-3 rounded-lg w-fit max-w-[80%] ${
+              className={`p-3 rounded-lg w-fit max-w-[80%] prose prose-invert ${
                 m.role === "user"
                   ? "bg-zinc-800 ml-auto"
-                  : "bg-zinc-900 mr-auto"
+                  : "bg-zinc-700 mr-auto"
               }`}
             >
-              {m.text}
+              {m.role === "bot" ? (
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {m.text}
+                </ReactMarkdown>
+              ) : (
+                m.text
+              )}
             </div>
           ))}
+
+          {loading && (
+            <div className="p-3 rounded-lg bg-zinc-700 w-fit mr-auto">
+              Typing…
+            </div>
+          )}
         </div>
 
         <form onSubmit={sendMessage} className="flex gap-2">
@@ -60,7 +92,10 @@ function App() {
             value={input}
             onChange={e => setInput(e.target.value)}
           />
-          <button className="bg-zinc-100 text-zinc-900 px-4 py-2 rounded-full hover:bg-zinc-300">
+          <button
+            className="bg-zinc-100 text-zinc-900 px-4 py-2 rounded-full hover:bg-zinc-300 disabled:opacity-60"
+            disabled={loading}
+          >
             Send
           </button>
         </form>

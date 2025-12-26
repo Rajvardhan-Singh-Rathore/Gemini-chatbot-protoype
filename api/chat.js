@@ -1,9 +1,22 @@
-export default async function handler(req, res) { 
+export default async function handler(req, res) {
   try {
     const { message } = req.body;
 
+    const prompt = `
+Reply in clean **Markdown** format.
+Always wrap code in fenced blocks like this:
+
+\`\`\`js
+console.log("hi")
+\`\`\`
+
+User question:
+${message}
+`;
+
     const r = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + process.env.GEMINI_API_KEY,
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
+        process.env.GEMINI_API_KEY,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -11,7 +24,7 @@ export default async function handler(req, res) {
           contents: [
             {
               role: "user",
-              parts: [{ text: message }]
+              parts: [{ text: prompt }]
             }
           ]
         })
@@ -21,8 +34,9 @@ export default async function handler(req, res) {
     const data = await r.json();
 
     const reply =
-      data?.candidates?.[0]?.content?.parts?.map(p => p.text).join("") ??
-      "No reply returned.";
+      data?.candidates?.[0]?.content?.parts
+        ?.map(p => p.text)
+        ?.join("") ?? "No reply returned.";
 
     res.status(200).json({ reply });
   } catch (e) {

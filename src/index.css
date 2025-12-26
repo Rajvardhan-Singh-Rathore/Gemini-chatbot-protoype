@@ -1,1 +1,8 @@
 @import "tailwindcss";
+.prose code {
+  background: #111827;
+  padding: 6px 8px;
+  border-radius: 6px;
+  display: block;
+  white-space: pre-wrap;
+}
