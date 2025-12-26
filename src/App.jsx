@@ -20,46 +20,44 @@ function App() {
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
   const chatRef = useRef(null);
 
-  // Listen to all conversations
+  // === Load all conversations ===
   useEffect(() => {
     const q = query(
       collection(db, "conversations"),
       orderBy("createdAt", "desc")
     );
 
-    const unsub = onSnapshot(q, snap => {
-      setConversations(
-        snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      );
-    });
-
-    return () => unsub();
+    return onSnapshot(q, snap =>
+      setConversations(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
   }, []);
 
-  // Load messages of active chat
+  // === Load messages of active chat IN ORDER ===
   useEffect(() => {
     if (!activeChat) return;
 
-    const unsub = onSnapshot(
+    const q = query(
       collection(db, "conversations", activeChat, "messages"),
-      snap => {
-        setMessages(snap.docs.map(d => d.data()));
-      }
+      orderBy("ts", "asc")
     );
 
-    return () => unsub();
+    return onSnapshot(q, snap =>
+      setMessages(snap.docs.map(d => d.data()))
+    );
   }, [activeChat]);
 
-  // Auto-scroll
+  // === Auto scroll ===
   useEffect(() => {
     if (chatRef.current)
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, [messages]);
+  }, [messages, loading]);
 
+  // === Create new chat ===
   async function newChat() {
     const docRef = await addDoc(collection(db, "conversations"), {
       title: "New chat",
@@ -68,6 +66,7 @@ function App() {
     setActiveChat(docRef.id);
   }
 
+  // === Send message ===
   async function sendMessage(e) {
     e.preventDefault();
     if (!input.trim() || !activeChat) return;
@@ -78,6 +77,7 @@ function App() {
       ts: Date.now()
     };
 
+    const textNow = input;
     setInput("");
 
     await addDoc(
@@ -85,24 +85,33 @@ function App() {
       userMsg
     );
 
-    // first user message becomes title
-    await updateDoc(doc(db, "conversations", activeChat), {
-      title: userMsg.text.slice(0, 25)
-    });
+    // Set title ONLY if first msg
+    if (!messages.length) {
+      await updateDoc(doc(db, "conversations", activeChat), {
+        title: textNow.slice(0, 25)
+      });
+    }
 
     setLoading(true);
 
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: userMsg.text })
+      body: JSON.stringify({
+        message: textNow,
+        history: messages
+      })
     });
 
     const data = await res.json();
 
     await addDoc(
       collection(db, "conversations", activeChat, "messages"),
-      { role: "bot", text: data.reply, ts: Date.now() }
+      {
+        role: "bot",
+        text: data.reply,
+        ts: Date.now()
+      }
     );
 
     setLoading(false);
@@ -113,32 +122,38 @@ function App() {
 
       {/* Sidebar */}
       <div className="w-64 bg-zinc-800 p-3 flex flex-col gap-3">
-        <button
-          onClick={newChat}
-          className="bg-zinc-700 p-2 rounded-lg"
-        >
+        <button onClick={newChat} className="bg-zinc-700 p-2 rounded-lg">
           ➕ New Chat
         </button>
 
         <input
           placeholder="Search..."
           className="p-2 rounded bg-zinc-900"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && setSearch("")}
         />
 
         <div className="flex-1 overflow-y-auto space-y-2">
-          {conversations.map(c => (
-            <div
-              key={c.id}
-              onClick={() => setActiveChat(c.id)}
-              className={`p-2 rounded cursor-pointer ${
-                c.id === activeChat
-                  ? "bg-zinc-600"
-                  : "bg-zinc-700"
-              }`}
-            >
-              {c.title || "Untitled"}
-            </div>
-          ))}
+          {conversations
+            .filter(c =>
+              (c.title || "")
+                .toLowerCase()
+                .includes(search.toLowerCase())
+            )
+            .map(c => (
+              <div
+                key={c.id}
+                onClick={() => setActiveChat(c.id)}
+                className={`p-2 rounded cursor-pointer ${
+                  c.id === activeChat
+                    ? "bg-zinc-600"
+                    : "bg-zinc-700"
+                }`}
+              >
+                {c.title || "Untitled"}
+              </div>
+            ))}
         </div>
       </div>
 

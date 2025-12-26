@@ -1,18 +1,12 @@
 export default async function handler(req, res) {
   try {
-    const { message } = req.body;
+    const { message, history = [] } = req.body;
 
-    const prompt = `
-Reply in clean **Markdown** format.
-Always wrap code in fenced blocks like this:
-
-\`\`\`js
-console.log("hi")
-\`\`\`
-
-User question:
-${message}
-`;
+    const prompt =
+      history
+        .map(m => `${m.role === "user" ? "User" : "Bot"}: ${m.text}`)
+        .join("\n") +
+      `\nUser: ${message}\nBot:`;
 
     const r = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
@@ -21,12 +15,7 @@ ${message}
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }]
-            }
-          ]
+          contents: [{ role: "user", parts: [{ text: prompt }] }]
         })
       }
     );
