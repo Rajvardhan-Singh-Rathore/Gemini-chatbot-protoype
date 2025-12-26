@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 
-import { db, auth, googleProvider } from "./firebase";
+import { db } from "./firebase";
 import {
   collection,
   addDoc,
@@ -15,7 +15,15 @@ import {
   serverTimestamp
 } from "firebase/firestore";
 
-import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from "firebase/auth";
+
+const auth = getAuth();
 
 function App() {
   const [user, setUser] = useState(null);
@@ -23,25 +31,17 @@ function App() {
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
 
   const chatRef = useRef(null);
 
-  // ==== AUTH ====
+  // 🔐 Track login state
   useEffect(() => {
-    return onAuthStateChanged(auth, u => setUser(u));
+    const unsub = onAuthStateChanged(auth, u => setUser(u));
+    return () => unsub();
   }, []);
 
-  function login() {
-    signInWithPopup(auth, googleProvider);
-  }
-
-  function logout() {
-    signOut(auth);
-  }
-
-  // ==== LOAD CHATS (per-user) ====
+  // 📌 Load conversations for logged-in user
   useEffect(() => {
     if (!user) return;
 
@@ -50,104 +50,111 @@ function App() {
       orderBy("createdAt", "desc")
     );
 
-    return onSnapshot(q, snap =>
-      setConversations(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    );
+    const unsub = onSnapshot(q, snap => {
+      setConversations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => unsub();
   }, [user]);
 
-  // ==== LOAD MESSAGES ====
+  // 💬 Load messages from active chat
   useEffect(() => {
     if (!activeChat || !user) return;
 
     const q = query(
-      collection(
-        db,
-        "users",
-        user.uid,
-        "conversations",
-        activeChat,
-        "messages"
-      ),
+      collection(db, "users", user.uid, "conversations", activeChat, "messages"),
       orderBy("ts", "asc")
     );
 
-    return onSnapshot(q, snap =>
-      setMessages(snap.docs.map(d => d.data()))
-    );
+    const unsub = onSnapshot(q, snap => {
+      setMessages(snap.docs.map(d => d.data()));
+    });
+
+    return () => unsub();
   }, [activeChat, user]);
 
+  // 🔽 Auto scroll
   useEffect(() => {
     if (chatRef.current)
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, loading]);
 
+  async function login() {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  }
+
+  async function logout() {
+    await signOut(auth);
+    setActiveChat(null);
+  }
+
   async function newChat() {
-    const ref = await addDoc(
+    if (!user) return;
+
+    const docRef = await addDoc(
       collection(db, "users", user.uid, "conversations"),
-      { title: "New chat", createdAt: serverTimestamp() }
+      {
+        title: "New chat",
+        createdAt: serverTimestamp()
+      }
     );
-    setActiveChat(ref.id);
+
+    setActiveChat(docRef.id);
   }
 
   async function sendMessage(e) {
     e.preventDefault();
-    if (!input.trim() || !activeChat) return;
+    if (!input.trim() || !activeChat || !user) return;
 
     const userMsg = { role: "user", text: input, ts: Date.now() };
-    const nowText = input;
-    setInput("");
-
-    await addDoc(
-      collection(
-        db,
-        "users",
-        user.uid,
-        "conversations",
-        activeChat,
-        "messages"
-      ),
-      userMsg
+    const path = collection(
+      db,
+      "users",
+      user.uid,
+      "conversations",
+      activeChat,
+      "messages"
     );
 
-    if (!messages.length) {
-      await updateDoc(
-        doc(db, "users", user.uid, "conversations", activeChat),
-        { title: nowText.slice(0, 25) }
-      );
-    }
+    setInput("");
+
+    await addDoc(path, userMsg);
+
+    // first user message = title
+    await updateDoc(
+      doc(db, "users", user.uid, "conversations", activeChat),
+      {
+        title: userMsg.text.slice(0, 30)
+      }
+    );
 
     setLoading(true);
 
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: nowText, history: messages })
+      body: JSON.stringify({ message: userMsg.text })
     });
 
     const data = await res.json();
 
-    await addDoc(
-      collection(
-        db,
-        "users",
-        user.uid,
-        "conversations",
-        activeChat,
-        "messages"
-      ),
-      { role: "bot", text: data.reply, ts: Date.now() }
-    );
+    await addDoc(path, {
+      role: "bot",
+      text: data.reply,
+      ts: Date.now()
+    });
 
     setLoading(false);
   }
 
-  // ==== NOT LOGGED IN ====
+  // ================= UI ==================
+
   if (!user)
     return (
       <div className="h-screen flex items-center justify-center bg-zinc-900 text-white">
         <button
           onClick={login}
-          className="bg-white text-black px-5 py-3 rounded-lg"
+          className="bg-white text-black px-5 py-3 rounded-lg shadow"
         >
           Continue with Google
         </button>
@@ -155,52 +162,36 @@ function App() {
     );
 
   return (
-    <div className="h-screen flex flex-col md:flex-row bg-zinc-900 text-white">
+    <div className="h-screen flex bg-zinc-900 text-white">
 
       {/* Sidebar */}
-      <div className="md:w-64 w-full bg-zinc-800 p-3 flex flex-col gap-3">
-        <div className="flex justify-between">
-          <button onClick={newChat} className="bg-zinc-700 p-2 rounded-lg">
-            ➕ New Chat
-          </button>
-          <button onClick={logout}>🚪</button>
-        </div>
-
-        <input
-          placeholder="Search..."
-          className="p-2 rounded bg-zinc-900"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && setSearch("")}
-        />
+      <div className="w-64 bg-zinc-800 p-3 flex flex-col gap-3">
+        <button onClick={newChat} className="bg-zinc-700 p-2 rounded-lg">
+          ➕ New Chat
+        </button>
 
         <div className="flex-1 overflow-y-auto space-y-2">
-          {conversations
-            .filter(c =>
-              (c.title || "")
-                .toLowerCase()
-                .includes(search.toLowerCase())
-            )
-            .map(c => (
-              <div
-                key={c.id}
-                onClick={() => setActiveChat(c.id)}
-                className={`p-2 rounded cursor-pointer ${
-                  c.id === activeChat
-                    ? "bg-zinc-600"
-                    : "bg-zinc-700"
-                }`}
-              >
-                {c.title || "Untitled"}
-              </div>
-            ))}
+          {conversations.map(c => (
+            <div
+              key={c.id}
+              onClick={() => setActiveChat(c.id)}
+              className={`p-2 rounded cursor-pointer ${
+                c.id === activeChat ? "bg-zinc-600" : "bg-zinc-700"
+              }`}
+            >
+              {c.title || "Untitled"}
+            </div>
+          ))}
         </div>
+
+        <button onClick={logout} className="bg-red-600 p-2 rounded-lg">
+          Logout
+        </button>
       </div>
 
       {/* Chat */}
       <div className="flex-1 flex flex-col p-5 gap-3">
-
-        <h1 className="text-xl md:text-2xl font-bold text-center">
+        <h1 className="text-2xl font-bold text-center">
           RVSR&apos;s Gemini Chatbot
         </h1>
 
@@ -211,7 +202,7 @@ function App() {
           {messages.map((m, i) => (
             <div
               key={i}
-              className={`p-3 rounded-lg max-w-[90%] md:max-w-[80%] ${
+              className={`p-3 rounded-lg max-w-[80%] ${
                 m.role === "user"
                   ? "bg-zinc-700 ml-auto"
                   : "bg-zinc-900 mr-auto"
@@ -240,9 +231,7 @@ function App() {
             onChange={e => setInput(e.target.value)}
             placeholder="Ask something..."
           />
-          <button className="bg-white text-black px-4 rounded">
-            Send
-          </button>
+          <button className="bg-white text-black px-4 rounded">Send</button>
         </form>
       </div>
     </div>
