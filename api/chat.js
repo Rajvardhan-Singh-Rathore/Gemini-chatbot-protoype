@@ -2,7 +2,7 @@ export default async function handler(req, res) {
   try {
     const { message, history = [] } = req.body;
 
-    // Convert history into Gemini-safe format
+    // Build chat history in Gemini format
     const contents = [
       ...history.map(m => ({
         role: m.role === "user" ? "user" : "model",
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     ];
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Gemini Error Response:", data);
+      console.error("Gemini API Error:", data);
       return res
         .status(500)
         .json({ reply: data.error?.message || "Gemini API Error" });
@@ -34,11 +34,11 @@ export default async function handler(req, res) {
 
     const reply =
       data?.candidates?.[0]?.content?.parts?.[0]?.text ??
-      "Sorry — I couldn’t generate a reply.";
+      "No reply returned.";
 
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("Gemini API Error:", err);
+    console.error("Server Error:", err);
     return res.status(500).json({ reply: "Server error" });
   }
 }
