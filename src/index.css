@@ -1,31 +1,48 @@
 @import "tailwindcss";
 @import "highlight.js/styles/github-dark.css";
 
-/* Inline code only */
+/* Inline code */
 .prose code {
-  background: #111827;
+  background: #000;
   padding: 2px 6px;
   border-radius: 6px;
   color: #e5e7eb;
 }
 
-/* Block (multi-line) code */
+/* Block code */
 .prose pre code {
   display: block;
-  background: #000;
-  padding: 12px;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Glass scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #ffffff30;
   border-radius: 10px;
-  white-space: pre;         /* preserve formatting */
-  overflow-x: auto;         /* horizontal scroll */
 }
 
-/* nicer scrollbar */
-.prose pre code::-webkit-scrollbar {
+/* Typing bubble dots */
+.typing-dot {
+  width: 6px;
   height: 6px;
+  background: black;
+  border-radius: 50%;
+  animation: blink 1.4s infinite both;
 }
 
-.prose pre code::-webkit-scrollbar-thumb {
-  background: #111;
-  border-radius: 8px;
+.typing-dot:nth-child(2) {
+  animation-delay: .2s;
+}
+.typing-dot:nth-child(3) {
+  animation-delay: .4s;
 }
 
+@keyframes blink {
+  0% { opacity: .2 }
+  20% { opacity: 1 }
+  100% { opacity: .2 }
+}

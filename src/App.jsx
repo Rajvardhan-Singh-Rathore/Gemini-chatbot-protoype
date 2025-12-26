@@ -4,20 +4,29 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 
 function App() {
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => {
+    return JSON.parse(localStorage.getItem("chat_history")) || [];
+  });
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
   const chatRef = useRef(null);
 
+  // ---------------- SAVE CHAT ----------------
+  useEffect(() => {
+    localStorage.setItem("chat_history", JSON.stringify(messages));
+  }, [messages]);
+
+  // ---------------- SEND MESSAGE ----------------
   async function sendMessage(e) {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
     const userMsg = { role: "user", text: input };
     setMessages(prev => [...prev, userMsg]);
+    setInput("");
     setLoading(true);
-    setInput(""); // clear immediately
 
     try {
       const res = await fetch("/api/chat", {
@@ -40,25 +49,24 @@ function App() {
     setLoading(false);
   }
 
-  // Auto-scroll
+  // --------------- AUTO-SCROLL ----------------
   useEffect(() => {
-    if (chatRef.current) {
+    if (chatRef.current)
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
-    }
   }, [messages, loading]);
 
   return (
-    <div className="h-screen bg-zinc-900 text-white flex items-center justify-center">
-      <div className="w-full max-w-2xl bg-zinc-800 p-5 rounded-xl shadow-lg flex flex-col gap-4">
+    <div className="h-screen bg-linear-to-br from-gray-900 via-gray-800 to-black text-white flex items-center justify-center">
+      <div className="w-full max-w-2xl backdrop-blur-2xl bg-white/10 border border-white/20 shadow-2xl p-6 rounded-3xl flex flex-col gap-4">
 
-        <h1 className="text-2xl font-bold text-center">
+        <h1 className="text-2xl font-bold text-center drop-shadow">
           RVSR&apos;s Gemini Chatbot
         </h1>
 
-        {/* CHAT BOX */}
+        {/* CHAT */}
         <div
           ref={chatRef}
-          className="flex-1 bg-zinc-900 p-4 rounded-lg space-y-3 overflow-y-auto"
+          className="flex-1 rounded-2xl p-4 overflow-y-auto space-y-3 bg-black/30 border border-white/10"
           style={{ maxHeight: "65vh" }}
         >
           {messages.map((m, i) => (
@@ -66,7 +74,7 @@ function App() {
               key={i}
               className={`max-w-[80%] ${
                 m.role === "user"
-                  ? "bg-zinc-800 p-3 rounded-lg ml-auto"
+                  ? "bg-white/20 border border-white/30 p-3 rounded-2xl ml-auto"
                   : "mr-auto"
               }`}
             >
@@ -75,7 +83,6 @@ function App() {
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight]}
                   components={{
-                    // normal paragraphs → NO bubble
                     p({ children }) {
                       return (
                         <p className="text-gray-200 leading-relaxed mb-2">
@@ -83,16 +90,24 @@ function App() {
                         </p>
                       );
                     },
-                    // inline code
+
                     code({ inline, className, children, ...props }) {
                       return inline ? (
-                        <code className="bg-black/70 px-1 py-0.5 rounded">
+                        <code className="bg-black/60 px-1 py-0.5 rounded">
                           {children}
                         </code>
                       ) : (
-                        // code block inside a zinc-700 card
-                        <div className="bg-zinc-700 p-2 rounded-lg my-2">
-                          <pre className="bg-black text-gray-100 p-3 rounded-md overflow-x-auto">
+                        <div className="bg-white/20 border border-white/30 rounded-xl my-2 relative">
+                          <button
+                            onClick={() =>
+                              navigator.clipboard.writeText(children)
+                            }
+                            className="absolute top-2 right-2 text-xs bg-white/20 border border-white/20 px-2 py-1 rounded-lg hover:bg-white/30"
+                          >
+                            Copy
+                          </button>
+
+                          <pre className="bg-black text-gray-100 p-4 rounded-xl overflow-x-auto">
                             <code className={className} {...props}>
                               {children}
                             </code>
@@ -110,9 +125,12 @@ function App() {
             </div>
           ))}
 
+          {/* TYPING BUBBLE */}
           {loading && (
-            <div className="p-3 rounded-lg bg-zinc-800 w-fit mr-auto">
-              Typing…
+            <div className="bg-white text-black px-3 py-2 rounded-2xl w-fit mr-auto flex gap-1">
+              <span className="typing-dot"></span>
+              <span className="typing-dot"></span>
+              <span className="typing-dot"></span>
             </div>
           )}
         </div>
@@ -120,13 +138,13 @@ function App() {
         {/* INPUT */}
         <form onSubmit={sendMessage} className="flex gap-2">
           <input
-            className="flex-1 p-3 bg-zinc-900 rounded-lg text-white"
+            className="flex-1 p-3 bg-black/40 border border-white/20 rounded-2xl text-white"
             placeholder="Ask something..."
             value={input}
             onChange={e => setInput(e.target.value)}
           />
           <button
-            className="bg-zinc-100 text-zinc-900 px-4 py-2 rounded-full hover:bg-zinc-300 disabled:opacity-60"
+            className="px-6 py-2 rounded-2xl bg-white/90 text-black font-semibold hover:bg-white disabled:opacity-50"
             disabled={loading}
           >
             Send
