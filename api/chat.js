@@ -2,7 +2,6 @@ export default async function handler(req, res) {
   try {
     const { message, history = [] } = req.body;
 
-    // Build chat history in Gemini format
     const contents = [
       ...history.map(m => ({
         role: m.role === "user" ? "user" : "model",
@@ -15,7 +14,7 @@ export default async function handler(req, res) {
     ];
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -27,9 +26,9 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       console.error("Gemini API Error:", data);
-      return res
-        .status(500)
-        .json({ reply: data.error?.message || "Gemini API Error" });
+      return res.status(500).json({
+        reply: data.error?.message || "Gemini API Error"
+      });
     }
 
     const reply =
