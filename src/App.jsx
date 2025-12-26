@@ -3,7 +3,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 
-import { db } from "./firebase";
+import { app, db } from "./firebase";
+
 import {
   collection,
   addDoc,
@@ -12,7 +13,8 @@ import {
   onSnapshot,
   query,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  getDocs
 } from "firebase/firestore";
 
 import {
@@ -23,7 +25,7 @@ import {
   onAuthStateChanged
 } from "firebase/auth";
 
-const auth = getAuth();
+const auth = getAuth(app);
 
 function App() {
   const [user, setUser] = useState(null);
@@ -35,13 +37,12 @@ function App() {
 
   const chatRef = useRef(null);
 
-  // 🔐 Track login state
+  // 🔐 Track auth state
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => setUser(u));
-    return () => unsub();
+    return onAuthStateChanged(auth, u => setUser(u));
   }, []);
 
-  // 📌 Load conversations for logged-in user
+  // 📂 Load user conversations
   useEffect(() => {
     if (!user) return;
 
@@ -50,30 +51,33 @@ function App() {
       orderBy("createdAt", "desc")
     );
 
-    const unsub = onSnapshot(q, snap => {
+    return onSnapshot(q, snap => {
       setConversations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-
-    return () => unsub();
   }, [user]);
 
-  // 💬 Load messages from active chat
+  // 💬 Load messages
   useEffect(() => {
     if (!activeChat || !user) return;
 
     const q = query(
-      collection(db, "users", user.uid, "conversations", activeChat, "messages"),
+      collection(
+        db,
+        "users",
+        user.uid,
+        "conversations",
+        activeChat,
+        "messages"
+      ),
       orderBy("ts", "asc")
     );
 
-    const unsub = onSnapshot(q, snap => {
+    return onSnapshot(q, snap => {
       setMessages(snap.docs.map(d => d.data()));
     });
-
-    return () => unsub();
   }, [activeChat, user]);
 
-  // 🔽 Auto scroll
+  // 🔽 Auto scroll when messages change
   useEffect(() => {
     if (chatRef.current)
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -91,7 +95,7 @@ function App() {
   async function newChat() {
     if (!user) return;
 
-    const docRef = await addDoc(
+    const ref = await addDoc(
       collection(db, "users", user.uid, "conversations"),
       {
         title: "New chat",
@@ -99,14 +103,13 @@ function App() {
       }
     );
 
-    setActiveChat(docRef.id);
+    setActiveChat(ref.id);
   }
 
   async function sendMessage(e) {
     e.preventDefault();
     if (!input.trim() || !activeChat || !user) return;
 
-    const userMsg = { role: "user", text: input, ts: Date.now() };
     const path = collection(
       db,
       "users",
@@ -116,24 +119,27 @@ function App() {
       "messages"
     );
 
+    const text = input;
     setInput("");
 
+    const userMsg = { role: "user", text, ts: Date.now() };
     await addDoc(path, userMsg);
 
-    // first user message = title
-    await updateDoc(
-      doc(db, "users", user.uid, "conversations", activeChat),
-      {
-        title: userMsg.text.slice(0, 30)
-      }
-    );
+    // 🏷️ Only set title if it's still default
+    const msgsSnap = await getDocs(path);
+    if (msgsSnap.size === 1) {
+      await updateDoc(
+        doc(db, "users", user.uid, "conversations", activeChat),
+        { title: text.slice(0, 30) }
+      );
+    }
 
     setLoading(true);
 
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: userMsg.text })
+      body: JSON.stringify({ message: text })
     });
 
     const data = await res.json();
@@ -231,7 +237,9 @@ function App() {
             onChange={e => setInput(e.target.value)}
             placeholder="Ask something..."
           />
-          <button className="bg-white text-black px-4 rounded">Send</button>
+          <button className="bg-white text-black px-4 rounded">
+            Send
+          </button>
         </form>
       </div>
     </div>
