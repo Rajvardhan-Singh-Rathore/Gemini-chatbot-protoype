@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { db } from "./firebase.js";
 
+import { db, auth, googleProvider } from "./firebase";
 import {
   collection,
   addDoc,
@@ -15,7 +15,10 @@ import {
   serverTimestamp
 } from "firebase/firestore";
 
+import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+
 function App() {
+  const [user, setUser] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -25,71 +28,92 @@ function App() {
 
   const chatRef = useRef(null);
 
-  // === Load all conversations ===
+  // ==== AUTH ====
   useEffect(() => {
+    return onAuthStateChanged(auth, u => setUser(u));
+  }, []);
+
+  function login() {
+    signInWithPopup(auth, googleProvider);
+  }
+
+  function logout() {
+    signOut(auth);
+  }
+
+  // ==== LOAD CHATS (per-user) ====
+  useEffect(() => {
+    if (!user) return;
+
     const q = query(
-      collection(db, "conversations"),
+      collection(db, "users", user.uid, "conversations"),
       orderBy("createdAt", "desc")
     );
 
     return onSnapshot(q, snap =>
       setConversations(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
-  }, []);
+  }, [user]);
 
-  // === Load messages of active chat IN ORDER ===
+  // ==== LOAD MESSAGES ====
   useEffect(() => {
-    if (!activeChat) return;
+    if (!activeChat || !user) return;
 
     const q = query(
-      collection(db, "conversations", activeChat, "messages"),
+      collection(
+        db,
+        "users",
+        user.uid,
+        "conversations",
+        activeChat,
+        "messages"
+      ),
       orderBy("ts", "asc")
     );
 
     return onSnapshot(q, snap =>
       setMessages(snap.docs.map(d => d.data()))
     );
-  }, [activeChat]);
+  }, [activeChat, user]);
 
-  // === Auto scroll ===
   useEffect(() => {
     if (chatRef.current)
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, loading]);
 
-  // === Create new chat ===
   async function newChat() {
-    const docRef = await addDoc(collection(db, "conversations"), {
-      title: "New chat",
-      createdAt: serverTimestamp()
-    });
-    setActiveChat(docRef.id);
+    const ref = await addDoc(
+      collection(db, "users", user.uid, "conversations"),
+      { title: "New chat", createdAt: serverTimestamp() }
+    );
+    setActiveChat(ref.id);
   }
 
-  // === Send message ===
   async function sendMessage(e) {
     e.preventDefault();
     if (!input.trim() || !activeChat) return;
 
-    const userMsg = {
-      role: "user",
-      text: input,
-      ts: Date.now()
-    };
-
-    const textNow = input;
+    const userMsg = { role: "user", text: input, ts: Date.now() };
+    const nowText = input;
     setInput("");
 
     await addDoc(
-      collection(db, "conversations", activeChat, "messages"),
+      collection(
+        db,
+        "users",
+        user.uid,
+        "conversations",
+        activeChat,
+        "messages"
+      ),
       userMsg
     );
 
-    // Set title ONLY if first msg
     if (!messages.length) {
-      await updateDoc(doc(db, "conversations", activeChat), {
-        title: textNow.slice(0, 25)
-      });
+      await updateDoc(
+        doc(db, "users", user.uid, "conversations", activeChat),
+        { title: nowText.slice(0, 25) }
+      );
     }
 
     setLoading(true);
@@ -97,34 +121,50 @@ function App() {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: textNow,
-        history: messages
-      })
+      body: JSON.stringify({ message: nowText, history: messages })
     });
 
     const data = await res.json();
 
     await addDoc(
-      collection(db, "conversations", activeChat, "messages"),
-      {
-        role: "bot",
-        text: data.reply,
-        ts: Date.now()
-      }
+      collection(
+        db,
+        "users",
+        user.uid,
+        "conversations",
+        activeChat,
+        "messages"
+      ),
+      { role: "bot", text: data.reply, ts: Date.now() }
     );
 
     setLoading(false);
   }
 
+  // ==== NOT LOGGED IN ====
+  if (!user)
+    return (
+      <div className="h-screen flex items-center justify-center bg-zinc-900 text-white">
+        <button
+          onClick={login}
+          className="bg-white text-black px-5 py-3 rounded-lg"
+        >
+          Continue with Google
+        </button>
+      </div>
+    );
+
   return (
-    <div className="h-screen flex bg-zinc-900 text-white">
+    <div className="h-screen flex flex-col md:flex-row bg-zinc-900 text-white">
 
       {/* Sidebar */}
-      <div className="w-64 bg-zinc-800 p-3 flex flex-col gap-3">
-        <button onClick={newChat} className="bg-zinc-700 p-2 rounded-lg">
-          ➕ New Chat
-        </button>
+      <div className="md:w-64 w-full bg-zinc-800 p-3 flex flex-col gap-3">
+        <div className="flex justify-between">
+          <button onClick={newChat} className="bg-zinc-700 p-2 rounded-lg">
+            ➕ New Chat
+          </button>
+          <button onClick={logout}>🚪</button>
+        </div>
 
         <input
           placeholder="Search..."
@@ -160,7 +200,7 @@ function App() {
       {/* Chat */}
       <div className="flex-1 flex flex-col p-5 gap-3">
 
-        <h1 className="text-2xl font-bold text-center">
+        <h1 className="text-xl md:text-2xl font-bold text-center">
           RVSR&apos;s Gemini Chatbot
         </h1>
 
@@ -171,7 +211,7 @@ function App() {
           {messages.map((m, i) => (
             <div
               key={i}
-              className={`p-3 rounded-lg max-w-[80%] ${
+              className={`p-3 rounded-lg max-w-[90%] md:max-w-[80%] ${
                 m.role === "user"
                   ? "bg-zinc-700 ml-auto"
                   : "bg-zinc-900 mr-auto"
@@ -193,7 +233,6 @@ function App() {
           {loading && <div>Typing…</div>}
         </div>
 
-        {/* Input */}
         <form onSubmit={sendMessage} className="flex gap-2">
           <input
             className="flex-1 p-3 rounded bg-zinc-900"
@@ -205,7 +244,6 @@ function App() {
             Send
           </button>
         </form>
-
       </div>
     </div>
   );
