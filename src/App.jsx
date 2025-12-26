@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -16,7 +17,7 @@ function App() {
     const userMsg = { role: "user", text: input };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
-    setInput(""); // clear input immediately after clicking Send
+    setInput(""); // clear input immediately
 
     try {
       const res = await fetch("/api/chat", {
@@ -29,7 +30,7 @@ function App() {
 
       const botMsg = { role: "bot", text: data.reply };
       setMessages(prev => [...prev, botMsg]);
-    } catch (err) {
+    } catch {
       setMessages(prev => [
         ...prev,
         { role: "bot", text: "Server error. Please try again." }
@@ -39,7 +40,7 @@ function App() {
     setLoading(false);
   }
 
-  // Auto-scroll whenever messages or loading changes
+  // Auto-scroll chat
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -54,6 +55,7 @@ function App() {
           RVSR&apos;s Gemini Chatbot
         </h1>
 
+        {/* CHAT BOX */}
         <div
           ref={chatRef}
           className="flex-1 bg-zinc-900 p-4 rounded-lg space-y-3 overflow-y-auto"
@@ -62,14 +64,32 @@ function App() {
           {messages.map((m, i) => (
             <div
               key={i}
-              className={`p-3 rounded-lg w-fit max-w-[80%] prose prose-invert ${
+              className={`p-3 rounded-lg w-fit max-w-[80%] ${
                 m.role === "user"
                   ? "bg-zinc-800 ml-auto"
                   : "bg-zinc-700 mr-auto"
               }`}
             >
               {m.role === "bot" ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                  components={{
+                    code({ inline, className, children, ...props }) {
+                      return inline ? (
+                        <code className="bg-black/70 px-1 py-0.5 rounded">
+                          {children}
+                        </code>
+                      ) : (
+                        <pre className="bg-black text-gray-100 p-3 rounded-lg overflow-x-auto">
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        </pre>
+                      );
+                    }
+                  }}
+                >
                   {m.text}
                 </ReactMarkdown>
               ) : (
@@ -85,6 +105,7 @@ function App() {
           )}
         </div>
 
+        {/* INPUT */}
         <form onSubmit={sendMessage} className="flex gap-2">
           <input
             className="flex-1 p-3 bg-zinc-900 rounded-lg text-white"

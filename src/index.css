@@ -1,8 +1,31 @@
 @import "tailwindcss";
+@import "highlight.js/styles/github-dark.css";
+
+/* Inline code only */
 .prose code {
   background: #111827;
-  padding: 6px 8px;
+  padding: 2px 6px;
   border-radius: 6px;
-  display: block;
-  white-space: pre-wrap;
+  color: #e5e7eb;
 }
+
+/* Block (multi-line) code */
+.prose pre code {
+  display: block;
+  background: #000;
+  padding: 12px;
+  border-radius: 10px;
+  white-space: pre;         /* preserve formatting */
+  overflow-x: auto;         /* horizontal scroll */
+}
+
+/* nicer scrollbar */
+.prose pre code::-webkit-scrollbar {
+  height: 6px;
+}
+
+.prose pre code::-webkit-scrollbar-thumb {
+  background: #525252;
+  border-radius: 8px;
+}
+
