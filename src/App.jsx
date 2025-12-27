@@ -37,29 +37,21 @@ function App() {
 
   const chatRef = useRef(null);
 
-  // 🔐 Track auth state
-  useEffect(() => {
-    return onAuthStateChanged(auth, u => setUser(u));
-  }, []);
+  useEffect(() => onAuthStateChanged(auth, u => setUser(u)), []);
 
-  // 📂 Load user conversations
   useEffect(() => {
     if (!user) return;
-
     const q = query(
       collection(db, "users", user.uid, "conversations"),
       orderBy("createdAt", "desc")
     );
-
-    return onSnapshot(q, snap => {
-      setConversations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    return onSnapshot(q, snap =>
+      setConversations(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    );
   }, [user]);
 
-  // 💬 Load messages
   useEffect(() => {
     if (!activeChat || !user) return;
-
     const q = query(
       collection(
         db,
@@ -71,13 +63,11 @@ function App() {
       ),
       orderBy("ts", "asc")
     );
-
-    return onSnapshot(q, snap => {
-      setMessages(snap.docs.map(d => d.data()));
-    });
+    return onSnapshot(q, snap =>
+      setMessages(snap.docs.map(d => d.data()))
+    );
   }, [activeChat, user]);
 
-  // 🔽 Auto scroll when messages change
   useEffect(() => {
     if (chatRef.current)
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -94,15 +84,10 @@ function App() {
 
   async function newChat() {
     if (!user) return;
-
     const ref = await addDoc(
       collection(db, "users", user.uid, "conversations"),
-      {
-        title: "New chat",
-        createdAt: serverTimestamp()
-      }
+      { title: "New chat", createdAt: serverTimestamp() }
     );
-
     setActiveChat(ref.id);
   }
 
@@ -122,17 +107,14 @@ function App() {
     const text = input;
     setInput("");
 
-    const userMsg = { role: "user", text, ts: Date.now() };
-    await addDoc(path, userMsg);
+    await addDoc(path, { role: "user", text, ts: Date.now() });
 
-    // 🏷️ Only set title if it's still default
     const msgsSnap = await getDocs(path);
-    if (msgsSnap.size === 1) {
+    if (msgsSnap.size === 1)
       await updateDoc(
         doc(db, "users", user.uid, "conversations", activeChat),
         { title: text.slice(0, 30) }
       );
-    }
 
     setLoading(true);
 
@@ -157,10 +139,10 @@ function App() {
 
   if (!user)
     return (
-      <div className="h-screen flex items-center justify-center bg-zinc-900 text-white">
+      <div className="min-h-screen flex items-center justify-center glass-bg">
         <button
           onClick={login}
-          className="bg-white text-black px-5 py-3 rounded-lg shadow"
+          className="glass-btn"
         >
           Continue with Google
         </button>
@@ -168,11 +150,11 @@ function App() {
     );
 
   return (
-    <div className="h-screen flex bg-zinc-900 text-white">
+    <div className="min-h-screen flex flex-col lg:flex-row glass-bg text-white">
 
       {/* Sidebar */}
-      <div className="w-64 bg-zinc-800 p-3 flex flex-col gap-3">
-        <button onClick={newChat} className="bg-zinc-700 p-2 rounded-lg">
+      <div className="w-full lg:w-72 p-4 flex flex-col gap-3 glass-card">
+        <button onClick={newChat} className="glass-btn">
           ➕ New Chat
         </button>
 
@@ -181,8 +163,8 @@ function App() {
             <div
               key={c.id}
               onClick={() => setActiveChat(c.id)}
-              className={`p-2 rounded cursor-pointer ${
-                c.id === activeChat ? "bg-zinc-600" : "bg-zinc-700"
+              className={`glass-item ${
+                c.id === activeChat && "glass-item-active"
               }`}
             >
               {c.title || "Untitled"}
@@ -190,28 +172,26 @@ function App() {
           ))}
         </div>
 
-        <button onClick={logout} className="bg-red-600 p-2 rounded-lg">
+        <button onClick={logout} className="glass-danger">
           Logout
         </button>
       </div>
 
       {/* Chat */}
-      <div className="flex-1 flex flex-col p-5 gap-3">
-        <h1 className="text-2xl font-bold text-center">
-          RVSR&apos;s Gemini Chatbot
+      <div className="flex-1 p-4 flex flex-col gap-3">
+        <h1 className="text-2xl font-bold text-center drop-shadow-md">
+          RVSR's Gemini Chatbot
         </h1>
 
         <div
           ref={chatRef}
-          className="flex-1 bg-zinc-800 p-4 rounded-lg overflow-y-auto space-y-3"
+          className="flex-1 glass-card overflow-y-auto space-y-3 p-4"
         >
           {messages.map((m, i) => (
             <div
               key={i}
-              className={`p-3 rounded-lg max-w-[80%] ${
-                m.role === "user"
-                  ? "bg-zinc-700 ml-auto"
-                  : "bg-zinc-900 mr-auto"
+              className={`glass-bubble ${
+                m.role === "user" ? "ml-auto user" : "mr-auto bot"
               }`}
             >
               {m.role === "bot" ? (
@@ -227,17 +207,23 @@ function App() {
             </div>
           ))}
 
-          {loading && <div>Typing…</div>}
+          {loading && (
+            <div className="glass-bubble bot flex gap-2">
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+            </div>
+          )}
         </div>
 
-        <form onSubmit={sendMessage} className="flex gap-2">
+        <form onSubmit={sendMessage} className="flex gap-2 glass-card p-2">
           <input
-            className="flex-1 p-3 rounded bg-zinc-900"
+            className="flex-1 bg-transparent outline-none"
             value={input}
             onChange={e => setInput(e.target.value)}
             placeholder="Ask something..."
           />
-          <button className="bg-white text-black px-4 rounded">
+          <button className="glass-btn px-4">
             Send
           </button>
         </form>

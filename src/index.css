@@ -1,48 +1,94 @@
 @import "tailwindcss";
 @import "highlight.js/styles/github-dark.css";
 
-/* Inline code */
-.prose code {
-  background: #000;
-  padding: 2px 6px;
-  border-radius: 6px;
-  color: #e5e7eb;
+/* Background gradient */
+.glass-bg {
+  background: radial-gradient(1200px 500px at top left,#ff5f6d20,#ffc37110),
+              radial-gradient(800px 600px at bottom right,#5a60ff20,#00ffcc10),
+              #0f0f12;
 }
 
-/* Block code */
-.prose pre code {
-  display: block;
-  white-space: pre;
-  overflow-x: auto;
+/* Universal glass panel */
+.glass-card {
+  background: rgba(255,255,255,0.08);
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.18);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 0 25px rgba(0,0,0,0.35);
 }
 
-/* Glass scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-thumb {
-  background: #ffffff30;
-  border-radius: 10px;
+/* Buttons */
+.glass-btn {
+  background: rgba(255,255,255,0.25);
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 10px 14px;
+  border-radius: 16px;
+  backdrop-filter: blur(18px);
+  transition: .2s;
 }
 
-/* Typing bubble dots */
+.glass-btn:hover {
+  background: rgba(255,255,255,0.35);
+  transform: scale(1.02);
+}
+
+/* Danger button */
+.glass-danger {
+  background: rgba(255,50,50,0.3);
+  border-radius: 16px;
+  padding: 10px;
+  border: 1px solid rgba(255,50,50,0.4);
+}
+
+/* Conversation item */
+.glass-item {
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.glass-item:hover {
+  border: 1px solid rgba(255,255,255,0.4);
+}
+
+.glass-item-active {
+  background: rgba(255,255,255,0.25);
+}
+
+/* Chat bubbles */
+.glass-bubble {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  backdrop-filter: blur(14px);
+}
+
+.user {
+  background: rgba(0,150,255,0.25);
+}
+
+.bot {
+  background: rgba(255,255,255,0.18);
+}
+
+/* Typing dots */
 .typing-dot {
   width: 6px;
   height: 6px;
-  background: black;
+  background: #fff;
   border-radius: 50%;
-  animation: blink 1.4s infinite both;
+  animation: blink 1.2s infinite both;
 }
 
-.typing-dot:nth-child(2) {
-  animation-delay: .2s;
-}
-.typing-dot:nth-child(3) {
-  animation-delay: .4s;
-}
+.typing-dot:nth-child(2){animation-delay:.2s}
+.typing-dot:nth-child(3){animation-delay:.4s}
 
 @keyframes blink {
-  0% { opacity: .2 }
-  20% { opacity: 1 }
-  100% { opacity: .2 }
+  0%{opacity:.2}
+  20%{opacity:1}
+  100%{opacity:.2}
 }
