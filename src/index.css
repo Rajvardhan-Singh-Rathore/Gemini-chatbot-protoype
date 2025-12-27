@@ -1,94 +1,102 @@
 @import "tailwindcss";
 @import "highlight.js/styles/github-dark.css";
 
-/* Background gradient */
-.glass-bg {
-  background: radial-gradient(1200px 500px at top left,#ff5f6d20,#ffc37110),
-              radial-gradient(800px 600px at bottom right,#5a60ff20,#00ffcc10),
-              #0f0f12;
+/* ===============  BACKGROUNDS  ================= */
+
+.chat-bg{
+  background:url("https://img.freepik.com/premium-photo/liquid-glass-black-background-wallpaper_269885083.htm")
+  center/cover no-repeat;
 }
 
-/* Universal glass panel */
-.glass-card {
-  background: rgba(255,255,255,0.08);
-  border-radius: 22px;
-  border: 1px solid rgba(255,255,255,0.18);
-  backdrop-filter: blur(18px);
-  box-shadow: 0 0 25px rgba(0,0,0,0.35);
+@media(max-width:768px){
+  .chat-bg{
+    background:url("https://thumbs.dreamstime.com/b/black-liquid-glass-fluid-abstract-background-black-liquid-glass-fluid-abstract-background-design-324616470.jpg")
+    center/cover no-repeat;
+  }
+}
+
+/* ===============  GLASS CORE  ================= */
+
+.glass-card{
+  background:rgba(255,255,255,.08);
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.2);
+  backdrop-filter:blur(22px);
+  -webkit-backdrop-filter:blur(22px);
 }
 
 /* Buttons */
-.glass-btn {
-  background: rgba(255,255,255,0.25);
-  border: 1px solid rgba(255,255,255,0.25);
-  padding: 10px 14px;
-  border-radius: 16px;
-  backdrop-filter: blur(18px);
-  transition: .2s;
+.glass-btn{
+  background:linear-gradient(145deg,rgba(255,255,255,.35),rgba(255,255,255,.08));
+  border:1px solid rgba(255,255,255,.35);
+  padding:10px 14px;
+  border-radius:18px;
+  backdrop-filter:blur(18px);
+  transition:.2s;
 }
 
-.glass-btn:hover {
-  background: rgba(255,255,255,0.35);
-  transform: scale(1.02);
+.glass-btn:hover{
+  transform:scale(1.03);
 }
 
-/* Danger button */
-.glass-danger {
-  background: rgba(255,50,50,0.3);
-  border-radius: 16px;
-  padding: 10px;
-  border: 1px solid rgba(255,50,50,0.4);
+/* Logout */
+.glass-danger{
+  background:rgba(255,0,0,.35);
+  border:1px solid rgba(255,0,0,.5);
+  border-radius:16px;
+  padding:10px;
 }
 
-/* Conversation item */
-.glass-item {
-  padding: 10px;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.12);
-  border: 1px solid transparent;
-  cursor: pointer;
+/* Conversation list */
+.glass-item{
+  padding:10px;
+  border-radius:14px;
+  background:rgba(255,255,255,.12);
+  cursor:pointer;
 }
 
-.glass-item:hover {
-  border: 1px solid rgba(255,255,255,0.4);
+.glass-item-active{
+  background:rgba(255,255,255,.28);
 }
 
-.glass-item-active {
-  background: rgba(255,255,255,0.25);
+/* Glass bubbles */
+
+.glass-bubble{
+  max-width:80%;
+  padding:12px 16px;
+  border-radius:22px;
+  background:linear-gradient(145deg,rgba(255,255,255,.22),rgba(255,255,255,.05));
+  border:1px solid rgba(255,255,255,.35);
+  backdrop-filter:blur(25px);
+  -webkit-backdrop-filter:blur(25px);
 }
 
-/* Chat bubbles */
-.glass-bubble {
-  max-width: 80%;
-  padding: 12px 16px;
-  border-radius: 18px;
-  background: rgba(255,255,255,0.15);
-  border: 1px solid rgba(255,255,255,0.25);
-  backdrop-filter: blur(14px);
+.user{
+  background:rgba(0,145,255,.28);
 }
 
-.user {
-  background: rgba(0,150,255,0.25);
+.bot{
+  background:rgba(255,255,255,.18);
 }
 
-.bot {
-  background: rgba(255,255,255,0.18);
-}
-
-/* Typing dots */
-.typing-dot {
-  width: 6px;
-  height: 6px;
-  background: #fff;
-  border-radius: 50%;
-  animation: blink 1.2s infinite both;
+/* typing bubbles */
+.typing-dot{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#fff;
+  animation:blink 1.3s infinite both;
 }
 
 .typing-dot:nth-child(2){animation-delay:.2s}
 .typing-dot:nth-child(3){animation-delay:.4s}
 
-@keyframes blink {
+@keyframes blink{
   0%{opacity:.2}
   20%{opacity:1}
   100%{opacity:.2}
 }
+
+/* smooth scroll chrome */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#ffffff33;border-radius:20px}

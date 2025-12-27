@@ -109,8 +109,8 @@ function App() {
 
     await addDoc(path, { role: "user", text, ts: Date.now() });
 
-    const msgsSnap = await getDocs(path);
-    if (msgsSnap.size === 1)
+    const snaps = await getDocs(path);
+    if (snaps.size === 1)
       await updateDoc(
         doc(db, "users", user.uid, "conversations", activeChat),
         { title: text.slice(0, 30) }
@@ -139,18 +139,15 @@ function App() {
 
   if (!user)
     return (
-      <div className="min-h-screen flex items-center justify-center glass-bg">
-        <button
-          onClick={login}
-          className="glass-btn"
-        >
+      <div className="min-h-screen flex items-center justify-center chat-bg text-white">
+        <button onClick={login} className="glass-btn">
           Continue with Google
         </button>
       </div>
     );
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row glass-bg text-white">
+    <div className="min-h-screen flex flex-col lg:flex-row chat-bg text-white">
 
       {/* Sidebar */}
       <div className="w-full lg:w-72 p-4 flex flex-col gap-3 glass-card">
@@ -164,7 +161,7 @@ function App() {
               key={c.id}
               onClick={() => setActiveChat(c.id)}
               className={`glass-item ${
-                c.id === activeChat && "glass-item-active"
+                c.id === activeChat ? "glass-item-active" : ""
               }`}
             >
               {c.title || "Untitled"}
@@ -180,13 +177,10 @@ function App() {
       {/* Chat */}
       <div className="flex-1 p-4 flex flex-col gap-3">
         <h1 className="text-2xl font-bold text-center drop-shadow-md">
-          RVSR's Gemini Chatbot
+          RVSR&apos;s Gemini Chatbot
         </h1>
 
-        <div
-          ref={chatRef}
-          className="flex-1 glass-card overflow-y-auto space-y-3 p-4"
-        >
+        <div ref={chatRef} className="flex-1 glass-card overflow-y-auto space-y-3 p-4">
           {messages.map((m, i) => (
             <div
               key={i}
@@ -223,9 +217,7 @@ function App() {
             onChange={e => setInput(e.target.value)}
             placeholder="Ask something..."
           />
-          <button className="glass-btn px-4">
-            Send
-          </button>
+          <button className="glass-btn px-4">Send</button>
         </form>
       </div>
     </div>
